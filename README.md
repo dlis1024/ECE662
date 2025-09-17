@@ -1,2 +1,2 @@
 # ECE662
-ECE 662 repository for lab projects
+Daniel Lis ECE 662 repository for lab projects
