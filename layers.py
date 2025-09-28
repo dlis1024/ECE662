@@ -36,8 +36,6 @@ def affine_forward(x, w, b):
     # x_2_by_120 = x.reshape(2,120) 
     # out = np.dot(x_2_by_120, w) + b
 
-    pass
-
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
     #                             END OF YOUR CODE                            #
@@ -68,6 +66,18 @@ def affine_backward(dout, cache):
     # TODO: Implement the affine backward pass.                               #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+
+    N = x.shape[0] # number of inputs
+    
+    # from matrix chain rule: df(g(x))/dx = df/dg * dg/dx
+    
+    # dx = dloss(out(x))/dout * dout(x)/dx = dout * w
+    dx = np.dot(dout, w.T).reshape(x.shape) # get dx in shape of (N,D) --> reshape to (N, d1, ..., d_k)
+    # dw = dloss(out(x))/dout * dout(x)/dw = dout * x 
+    dw = np.dot(x.reshape(N, -1).T, dout) # reshape x into (D,N)
+    # db = dloss(out(x))/dout * dout(x)/db = dout * 1 
+    db = np.dot(dout.T, np.ones(N,))
+
 
     pass
 
