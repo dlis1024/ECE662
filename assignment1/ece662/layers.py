@@ -77,8 +77,6 @@ def affine_backward(dout, cache):
     dw = np.dot(x.reshape(N, -1).T, dout) # reshape x into (D,N)
     # db = dloss(out(x))/dout * dout(x)/db = dout * 1 
     db = np.dot(dout.T, np.ones(N,))
-
-
     pass
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -99,13 +97,15 @@ def relu_forward(x):
     - out: Output, of the same shape as x
     - cache: x
     """
-    out = None
+    #out = None
     ###########################################################################
     # TODO: Implement the ReLU forward pass.                                  #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    out = np.maximum(np.zeros(x.shape), x)
+
+    #pass
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -132,6 +132,11 @@ def relu_backward(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
+    # from matrix chain rule: df(g(x))/dx = df/dg * dg/dx
+    # dx = dloss(relu(x))/dout * drelu(x)/dx = dout * 0 (given x<0) or dout * 1 (given x>0)
+    
+    dx = dout * (x > 0)
+    
     pass
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
