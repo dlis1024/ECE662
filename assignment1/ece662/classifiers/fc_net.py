@@ -55,6 +55,11 @@ class TwoLayerNet(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
+        self.params['W1'] = weight_scale * np.random.randn(input_dim, hidden_dim)
+        self.params['b1'] = np.zeros(hidden_dim,)
+        self.params['W2'] = weight_scale * np.random.randn(hidden_dim, num_classes)
+        self.params['b2'] = np.zeros(num_classes,)
+
         pass
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -88,6 +93,10 @@ class TwoLayerNet(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
+        layer1_out, layer1_cache = affine_forward(X, self.params['W1'], self.params['b1'])
+        hidden_layer_out, hidden_layer_cache = relu_forward(layer1_out)
+        scores, layer2_cache = affine_forward(hidden_layer_out, self.params['W2'], self.params['b2'])
+
         pass
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -112,6 +121,19 @@ class TwoLayerNet(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
+        # compute softmax loss with regularization and the Gradient of the loss with respect to x of the score function
+        loss, dout = softmax_loss(scores, y)
+        loss += 0.5 * self.reg * (np.sum(self.params['W1']*self.params['W1']) + np.sum(self.params['W2']*self.params['W2']))
+    
+        # unroll each layer to get layer gradient and cache
+        dx_layer2, dw_layer2, db_layer2 = affine_backward(dout, layer2_cache)
+        dx_hidden_layer = relu_backward(dx_layer2, hidden_layer_cache)
+        dx_layer1, dw_layer1, db_layer1 = affine_backward(dx_hidden_layer, layer1_cache)
+
+        grads['W1'] = dw_layer1 + self.reg * self.params['W1']
+        grads['b1'] = db_layer1
+        grads['W2'] = dw_layer2 + self.reg * self.params['W2']
+        grads['b2'] = db_layer2
         pass
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
