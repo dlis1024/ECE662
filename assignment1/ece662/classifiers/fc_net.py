@@ -213,6 +213,27 @@ class FullyConnectedNet(object):
         # parameters should be initialized to zeros.                               #
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+        
+        # create a layer dimension array [input_dim, hidden_dims_1, ... hidden_dims_n, num_classes]
+        layer_dims = [input_dim] + hidden_dims + [num_classes]
+
+        for i in range(self.num_layers):
+          # create weight and bias self.params dictionary keys for each layer
+          W_key = f'W{i + 1}'
+          b_key = f'b{i + 1}'
+          
+          # create Weights with Gaussian centered at 0.0 and standard deviation equal to weight_scale
+          self.params[W_key] = weight_scale * np.random.randn(layer_dims[i], layer_dims[i + 1])
+          # create biase initialized to 0 with dimension 
+          self.params[b_key] = np.zeros(layer_dims[i + 1])
+          
+          # if using batch normalization, initialize gamma and beta for all but last layer
+          if self.normalization is not None and i < self.num_layers - 1:
+              gamma_key = f'gamma{i + 1}'
+              beta_key = f'beta{i + 1}'
+              self.params[gamma_key] = np.ones(layer_dims[i + 1])
+              self.params[beta_key] = np.zeros(layer_dims[i + 1])
+
 
         pass
 
@@ -275,7 +296,11 @@ class FullyConnectedNet(object):
         # layer, etc.                                                              #
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
+        #{affine - [batch/layer norm] - relu - [dropout]} x (L - 1) - affine - softmax
+        for i in range(self.num_layers):
+          layer_out[i+1], layer_cache[i+1] = affine_forward(X, self.params[f'W{i + 1}'], self.params[f'b{i + 1}'])
+          hidden_layer_out, hidden_layer_cache = relu_forward(layer1_out)
+          scores, layer2_cache = affine_forward(hidden_layer_out, self.params['W2'], self.params['b2'])
         pass
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
