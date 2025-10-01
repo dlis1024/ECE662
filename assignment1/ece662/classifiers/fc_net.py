@@ -298,6 +298,7 @@ class FullyConnectedNet(object):
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         #{affine - [batch/layer norm] - relu - [dropout]} x (L - 1) - affine - softmax
         for i in range(self.num_layers):
+          layer1_out, layer1_cache = affine_forward(X, self.params['W1'], self.params['b1'])
           layer_out[i+1], layer_cache[i+1] = affine_forward(X, self.params[f'W{i + 1}'], self.params[f'b{i + 1}'])
           hidden_layer_out, hidden_layer_cache = relu_forward(layer1_out)
           scores, layer2_cache = affine_forward(hidden_layer_out, self.params['W2'], self.params['b2'])
