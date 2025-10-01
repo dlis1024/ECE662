@@ -221,7 +221,7 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         sample_var = np.var(x, axis=0) # mini-batch variance
 
         x_norm = (x - sample_mean) / np.sqrt(sample_var + eps) # normalization
-        out = gamma * x_norm + beta # scale and shift
+        out = gamma*x_norm + beta # scale and shift
         
         running_mean = momentum * running_mean + (1 - momentum) * sample_mean
         running_var = momentum * running_var + (1 - momentum) * sample_var
@@ -244,6 +244,7 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         
         x_norm = (x - running_mean) / np.sqrt(running_var + eps)
         out = gamma * x_norm + beta # scale and shift
+
         pass
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -285,7 +286,24 @@ def batchnorm_backward(dout, cache):
     # might prove to be helpful.                                              #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    # from matrix chain rule: df(g(x))/dx = df/dg * dg/dx
+    # out = gamma*x_norm + beta
 
+    x, x_norm, mean, var, gamma, beta, eps = cache
+    N, D = dout.shape
+
+    # dbeta = dloss(out(x))/dout * dout(x)/dbeta = dout * 1
+    dbeta = np.sum(dout, axis=0) # shape (D,)
+   
+    # dgamma = dloss(out(x))/dout * dout(x)/dgamma = dout * x_norm 
+    dgamma = np.sum(dout * x_norm, axis=0) # shape (D,)
+    
+    # dx_norm = dloss(out(x))/dout * dout(x)/dx_norm = dout * gamma
+    # dx​=(1/Nsqrt*(var+ϵ))​[N⋅dx_norm−∑dx_norm−x_norm⋅∑(dx_norm⋅x_norm)]
+    dx_norm = dout * gamma
+    dx = (1. / N) * (1. / np.sqrt(var + eps)) * (N * dx_norm - np.sum(dx_norm, axis=0) - x_norm * np.sum(dx_norm * x_norm, axis=0))
+
+    
     pass
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****

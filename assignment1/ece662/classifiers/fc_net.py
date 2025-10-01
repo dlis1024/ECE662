@@ -270,7 +270,20 @@ class FullyConnectedNet(object):
         """
         Compute loss and gradient for the fully-connected net.
 
-        Input / output: Same as TwoLayerNet above.
+        Inputs:
+        - X: Array of input data of shape (N, d_1, ..., d_k)
+        - y: Array of labels, of shape (N,). y[i] gives the label for X[i].
+
+        Returns:
+        If y is None, then run a test-time forward pass of the model and return:
+        - scores: Array of shape (N, C) giving classification scores, where
+          scores[i, c] is the classification score for X[i] and class c.
+
+        If y is not None, then run a training-time forward and backward pass and
+        return a tuple of:
+        - loss: Scalar value giving the loss
+        - grads: Dictionary with the same keys as self.params, mapping parameter
+          names to gradients of the loss with respect to those parameters.
         """
         X = X.astype(self.dtype)
         mode = "test" if y is None else "train"
@@ -297,11 +310,24 @@ class FullyConnectedNet(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         #{affine - [batch/layer norm] - relu - [dropout]} x (L - 1) - affine - softmax
-        for i in range(self.num_layers):
-          layer1_out, layer1_cache = affine_forward(X, self.params['W1'], self.params['b1'])
-          layer_out[i+1], layer_cache[i+1] = affine_forward(X, self.params[f'W{i + 1}'], self.params[f'b{i + 1}'])
-          hidden_layer_out, hidden_layer_cache = relu_forward(layer1_out)
-          scores, layer2_cache = affine_forward(hidden_layer_out, self.params['W2'], self.params['b2'])
+
+        caches = {}
+        out = X # set out to X for first layer input
+
+        for i in range(1, self.num_layers):  # Hidden layers: 1 to L-1
+          W = self.params[f'W{i}']
+          b = self.params[f'b{i}']
+
+          out, fc_cache = affine_forward(out, W, b) # get affine out and fully connected cache
+          out, relu_cache = relu_forward(out)
+          caches[i] = (fc_cache, relu_cache)
+        
+        # Final affine layer to get scores
+        W_final_layer = self.params[f'W{self.num_layers}']
+        b_final_layer = self.params[f'b{self.num_layers}']
+        scores, final_layer_cache = affine_forward(out, W_final_layer, b_final_layer)
+        caches[self.num_layers] = final_layer_cache 
+
         pass
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -328,6 +354,28 @@ class FullyConnectedNet(object):
         # of 0.5 to simplify the expression for the gradient.                      #
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+        loss, dout = softmax_loss(scores, y)
+        
+        
+        # compute softmax loss with regularization and the Gradient of the loss with respect to x of the score function
+        loss, dout = softmax_loss(scores, y)
+        
+        for i in range(1, self.num_layers + 1):
+          W = self.params[f'W{i}']
+          loss += 0.5 * self.reg * np.sum(W * W)
+    
+        # backward pass for final layer
+        dx, dw, db = affine_backward(dout, caches[self.num_layers])
+        grads[f'W{self.num_layers}'] = dw + self.reg * self.params[f'W{self.num_layers}']
+        grads[f'b{self.num_layers}'] = db
+
+        # backward pass for layers layer L-1 to layer 1
+        for i in reversed(range(1, self.num_layers)):
+            fc_cache, relu_cache = caches[i]
+            dx = relu_backward(dx, relu_cache)
+            dx, dW, db = affine_backward(dx, fc_cache)
+            grads[f'W{i}'] = dW + self.reg * self.params[f'W{i}']
+            grads[f'b{i}'] = db
 
         pass
 
