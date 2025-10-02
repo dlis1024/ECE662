@@ -68,7 +68,19 @@ def sgd_momentum(w, dw, config=None):
     # the next_w variable. You should also use and update the velocity v.     #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    
+    # from lec 4 slide 35, note: the slides show these equations but the Q1 test only worked when I switched the signs as show in my code
+    # v_t+1 = gamma*v_t + n*dw : momentum derating coefficient (gamma), velocity (v), learning rate (n), gradint wrt w (dw)
+    # x_t+1 = x_t - v_t 
 
+    gamma = config["momentum"]
+    n = config["learning_rate"]
+
+    v = gamma*v - n*dw     # update velocity using momentum and current gradient
+    next_w = w + v         # Apply velocity to update the weights
+    
+    config["velocity"] = v # store updated velocity for usage in next iteration
+    
     pass
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -107,6 +119,14 @@ def rmsprop(w, dw, config=None):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
+    learning_rate = config["learning_rate"]
+    decay_rate = config["decay_rate"]
+    epsilon = config["epsilon"]
+    cache = config["cache"]
+
+    cache = decay_rate * cache + (1 - decay_rate) * (dw ** 2)
+    next_w = w - (learning_rate * dw) / (np.sqrt(cache) + epsilon)
+    config["cache"] = cache
     pass
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -151,7 +171,29 @@ def adam(w, dw, config=None):
     # using it in any calculations.                                           #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+   
+    learning_rate = config["learning_rate"]
+    beta1 = config["beta1"]
+    beta2 = config["beta2"]
+    epsilon = config["epsilon"]
+    m = config["m"]
+    v = config["v"]
+    t = config["t"] + 1 # modify t before calculations
 
+    m = beta1 * m + (1 - beta1) * dw
+    v = beta2 * v + (1 - beta2) * (dw ** 2)
+
+    # Compute bias-corrected estimates
+    m_hat = m / (1 - beta1 ** t)
+    v_hat = v / (1 - beta2 ** t)
+
+    # Compute parameter update
+    next_w = w - learning_rate * m_hat / (np.sqrt(v_hat) + epsilon)
+
+    # Store updated values back into config
+    config["m"] = m
+    config["v"] = v
+    config["t"] = t
     pass
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****

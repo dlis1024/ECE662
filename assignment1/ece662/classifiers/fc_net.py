@@ -354,9 +354,7 @@ class FullyConnectedNet(object):
         # of 0.5 to simplify the expression for the gradient.                      #
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-        loss, dout = softmax_loss(scores, y)
-        
-        
+
         # compute softmax loss with regularization and the Gradient of the loss with respect to x of the score function
         loss, dout = softmax_loss(scores, y)
         
