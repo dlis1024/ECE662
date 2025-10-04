@@ -289,19 +289,35 @@ def batchnorm_backward(dout, cache):
     # from matrix chain rule: df(g(x))/dx = df/dg * dg/dx
     # out = gamma*x_norm + beta
 
-    x, x_norm, mean, var, gamma, beta, eps = cache
+    x, x_norm, mu, var, gamma, beta, eps = cache
     N, D = dout.shape
 
-    # dbeta = dloss(out(x))/dout * dout(x)/dbeta = dout * 1
-    dbeta = np.sum(dout, axis=0) # shape (D,)
-   
-    # dgamma = dloss(out(x))/dout * dout(x)/dgamma = dout * x_norm 
-    dgamma = np.sum(dout * x_norm, axis=0) # shape (D,)
-    
-    # dx_norm = dloss(out(x))/dout * dout(x)/dx_norm = dout * gamma
-    # dx​=(1/Nsqrt*(var+ϵ))​[N⋅dx_norm−∑dx_norm−x_norm⋅∑(dx_norm⋅x_norm)]
-    dx_norm = dout * gamma
-    dx = (1. / N) * (1. / np.sqrt(var + eps)) * (N * dx_norm - np.sum(dx_norm, axis=0) - x_norm * np.sum(dx_norm * x_norm, axis=0))
+    # Step 1: Gradients of scale and shift parameters
+    dbeta = np.sum(dout, axis=0)                         # (D,)
+    dgamma = np.sum(dout * x_norm, axis=0)               # (D,)
+
+    # Step 2: Intermediate gradients
+    dx_norm = dout * gamma                               # (N, D)
+    std_inv = 1. / np.sqrt(var + eps)                    # (D,)
+
+    # Step 3: Gradients of the normalization
+    dxmu1 = dx_norm * std_inv                            # (N, D)
+
+    # Step 4: Gradient of std
+    dstd_inv = np.sum(dx_norm * (x - mu), axis=0)        # (D,)
+    dvar = dstd_inv * -0.5 * (var + eps) ** (-1.5)       # (D,)
+
+    # Step 5: Gradient of variance to x
+    dxmu2 = dvar * 2.0 * (x - mu) / N                    # (N, D)
+
+    # Step 6: Total dxmu
+    dxmu = dxmu1 + dxmu2                                 # (N, D)
+
+    # Step 7: Gradient of mean
+    dmu = -1.0 * np.sum(dxmu, axis=0)                    # (D,)
+
+    # Step 8: Final dx
+    dx = dxmu + dmu / N                           
 
     
     pass
@@ -338,7 +354,20 @@ def batchnorm_backward_alt(dout, cache):
     # single statement; our implementation fits on a single 80-character line.#
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
+    
+    x, x_norm, mean, var, gamma, beta, eps = cache
+    N, D = dout.shape
+    
+    # dbeta = dloss(out(x))/dout * dout(x)/dbeta = dout * 1
+    dbeta = np.sum(dout, axis=0) # shape (D,)
+   
+    # dgamma = dloss(out(x))/dout * dout(x)/dgamma = dout * x_norm 
+    dgamma = np.sum(dout * x_norm, axis=0) # shape (D,)
+    
+    # dx_norm = dloss(out(x))/dout * dout(x)/dx_norm = dout * gamma
+    # dx​=(1/Nsqrt*(var+ϵ))​[N⋅dx_norm−∑dx_norm−x_norm⋅∑(dx_norm⋅x_norm)]
+    dx_norm = dout * gamma
+    dx = (1. / N) * (1. / np.sqrt(var + eps)) * (N * dx_norm - np.sum(dx_norm, axis=0) - x_norm * np.sum(dx_norm * x_norm, axis=0))
     pass
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
