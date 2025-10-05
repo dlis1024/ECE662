@@ -217,16 +217,16 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         #######################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         
-        sample_mean = np.mean(x, axis=0) # mini-batch mean
+        mu = np.mean(x, axis=0) # mini-batch mean
         sample_var = np.var(x, axis=0) # mini-batch variance
 
-        x_norm = (x - sample_mean) / np.sqrt(sample_var + eps) # normalization
+        x_norm = (x - mu) / np.sqrt(sample_var + eps) # normalization
         out = gamma*x_norm + beta # scale and shift
         
-        running_mean = momentum * running_mean + (1 - momentum) * sample_mean
+        running_mean = momentum * running_mean + (1 - momentum) * mu
         running_var = momentum * running_var + (1 - momentum) * sample_var
 
-        cache = (x, x_norm, sample_mean, sample_var, gamma, beta, eps)
+        cache = (x, x_norm, mu, sample_var, gamma, beta, eps)
         pass
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -288,38 +288,30 @@ def batchnorm_backward(dout, cache):
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     # from matrix chain rule: df(g(x))/dx = df/dg * dg/dx
     # out = gamma*x_norm + beta
+    # dout = dL(out)/dout
 
     x, x_norm, mu, var, gamma, beta, eps = cache
     N, D = dout.shape
 
-    # Step 1: Gradients of scale and shift parameters
     dbeta = np.sum(dout, axis=0)                         # (D,)
     dgamma = np.sum(dout * x_norm, axis=0)               # (D,)
 
-    # Step 2: Intermediate gradients
     dx_norm = dout * gamma                               # (N, D)
     std_inv = 1. / np.sqrt(var + eps)                    # (D,)
 
-    # Step 3: Gradients of the normalization
     dxmu1 = dx_norm * std_inv                            # (N, D)
 
-    # Step 4: Gradient of std
     dstd_inv = np.sum(dx_norm * (x - mu), axis=0)        # (D,)
     dvar = dstd_inv * -0.5 * (var + eps) ** (-1.5)       # (D,)
 
-    # Step 5: Gradient of variance to x
     dxmu2 = dvar * 2.0 * (x - mu) / N                    # (N, D)
 
-    # Step 6: Total dxmu
     dxmu = dxmu1 + dxmu2                                 # (N, D)
 
-    # Step 7: Gradient of mean
     dmu = -1.0 * np.sum(dxmu, axis=0)                    # (D,)
 
-    # Step 8: Final dx
     dx = dxmu + dmu / N                           
 
-    
     pass
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
