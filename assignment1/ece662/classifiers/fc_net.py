@@ -408,18 +408,22 @@ class FullyConnectedNet(object):
             bn_param = self.bn_params[i-1]  #bn_params list
 
             out, cache = affine_bn_relu_forward(out, W, b, gamma, beta, bn_param)
-            caches[i] = cache
+
           elif self.normalization == 'layernorm':
             gamma = self.params[f'gamma{i}']
             beta = self.params[f'beta{i}']
             bn_param = self.bn_params[i-1]  #bn_params list
-
             out, cache = affine_ln_relu_forward(out, W, b, gamma, beta, bn_param)
-            caches[i] = cache
+
           else:
             out, fc_cache = affine_forward(out, W, b) # get affine out and fully connected cache
             out, relu_cache = relu_forward(out)
-            caches[i] = (fc_cache, relu_cache)
+            cache = (fc_cache, relu_cache)
+
+          if self.use_dropout:
+            out, do_cache = dropout_forward(out, self.dropout_param)
+            cache = (cache, do_cache)
+          caches[i] = cache
         
         # Final affine layer to get scores
         W_final_layer = self.params[f'W{self.num_layers}']
@@ -468,24 +472,32 @@ class FullyConnectedNet(object):
 
         # backward pass for layers layer L-1 to layer 1
         for i in reversed(range(1, self.num_layers)):
+            cache = caches[i]
+            if self.use_dropout:
+              cache, dropout_cache = cache  
+              dx = dropout_backward(dx, dropout_cache)
+
             if self.normalization == 'batchnorm':
-              dx, dw, db, dgamma, dbeta = affine_bn_relu_backward(dx, caches[i])
+              dx, dw, db, dgamma, dbeta = affine_bn_relu_backward(dx, cache)
               grads[f'W{i}'] = dw + self.reg * self.params[f'W{i}']
               grads[f'b{i}'] = db
               grads[f'gamma{i}'] = dgamma
               grads[f'beta{i}'] = dbeta
+
             elif self.normalization == 'layernorm':
-              dx, dw, db, dgamma, dbeta = affine_ln_relu_backward(dx, caches[i])
+              dx, dw, db, dgamma, dbeta = affine_ln_relu_backward(dx, cache)
               grads[f'W{i}'] = dw + self.reg * self.params[f'W{i}']
               grads[f'b{i}'] = db
               grads[f'gamma{i}'] = dgamma
               grads[f'beta{i}'] = dbeta
+
             else:
-              fc_cache, relu_cache = caches[i]
+              fc_cache, relu_cache = cache
               dx = relu_backward(dx, relu_cache)
               dx, dw, db = affine_backward(dx, fc_cache)
-              grads[f'W{i}'] = dw + self.reg * self.params[f'W{i}']
-              grads[f'b{i}'] = db
+            
+            grads[f'W{i}'] = dw + self.reg * self.params[f'W{i}']
+            grads[f'b{i}'] = db
 
         pass
 
