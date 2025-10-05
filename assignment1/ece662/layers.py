@@ -405,7 +405,14 @@ def layernorm_forward(x, gamma, beta, ln_param):
     # the batch norm code and leave it almost unchanged?                      #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    
+    mu = np.mean(x, axis=1, keepdims=True) 
+    var = np.var(x, axis=1, keepdims=True) 
 
+    x_norm = (x - mu) / np.sqrt(var + eps) # normalization
+    out = gamma*x_norm + beta # scale and shift
+
+    cache = (x, x_norm, mu, var, gamma, beta, eps)
     pass
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -440,7 +447,25 @@ def layernorm_backward(dout, cache):
     # still apply!                                                            #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    x, x_norm, mu, var, gamma, beta, eps = cache
+    N, D = dout.shape
+    
+    # dbeta = dloss(out(x))/dout * dout(x)/dbeta = dout * 1
+    dbeta = np.sum(dout, axis=0) # shape (D,)
+   
+    # dgamma = dloss(out(x))/dout * dout(x)/dgamma = dout * x_norm 
+    dgamma = np.sum(dout * x_norm, axis=0) # shape (D,)
 
+    # dx_norm = dloss(out(x))/dout * dout(x)/dx_norm = dout * gamma
+    dx_norm = dout * gamma
+
+    dx_norm = dx_norm.T       # (D, N)
+    x_norm = x_norm.T         # (D, N)
+    var = var.T               # (D, 1)
+
+    # dx​=(1/Nsqrt*(var+ϵ))​[N⋅dx_norm−∑dx_norm−x_norm⋅∑(dx_norm⋅x_norm)]
+    dx = (1. / D) * (1. / np.sqrt(var + eps)) * (D * dx_norm - np.sum(dx_norm, axis=0, keepdims=True) - x_norm * np.sum(dx_norm * x_norm, axis=0, keepdims=True)) # shape: (D, N)
+    dx = dx.T  # shape:(N, D)
     pass
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****

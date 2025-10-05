@@ -5,6 +5,90 @@ import numpy as np
 from ..layers import *
 from ..layer_utils import *
 
+# batchnorm layer_util
+def affine_bn_relu_forward(x, w, b, gamma, beta, bn_param):
+    """
+    Convenience layer: affine -> batchnorm -> ReLU
+
+    Inputs:
+    - x: Input data, shape (N, D)
+    - w, b: Weights and biases for affine layer
+    - gamma, beta: Scale and shift parameters for batchnorm
+    - bn_param: Dictionary of batchnorm parameters
+
+    Returns a tuple of:
+    - out: Output of ReLU
+    - cache: Tuple of caches needed for backward pass
+    """
+    a, fc_cache = affine_forward(x, w, b)
+    an, bn_cache = batchnorm_forward(a, gamma, beta, bn_param)
+    out, relu_cache = relu_forward(an)
+    cache = (fc_cache, bn_cache, relu_cache)
+    return out, cache
+
+def affine_bn_relu_backward(dout, cache):
+    """
+    Backward pass for affine-batchnorm-ReLU convenience layer.
+
+    Inputs:
+    - dout: Upstream gradient
+    - cache: Tuple of caches from forward pass
+
+    Returns a tuple of:
+    - dx: Gradient wrt input x
+    - dw: Gradient wrt weights w
+    - db: Gradient wrt biases b
+    - dgamma: Gradient wrt batchnorm scale parameter gamma
+    - dbeta: Gradient wrt batchnorm shift parameter beta
+    """
+    fc_cache, bn_cache, relu_cache = cache
+    dan = relu_backward(dout, relu_cache)
+    da, dgamma, dbeta = batchnorm_backward(dan, bn_cache)
+    dx, dw, db = affine_backward(da, fc_cache)
+    return dx, dw, db, dgamma, dbeta
+
+# layernorm layer_util
+def affine_ln_relu_forward(x, w, b, gamma, beta, bn_param):
+    """
+    Convenience layer: affine -> layernorm -> ReLU
+
+    Inputs:
+    - x: Input data, shape (N, D)
+    - w, b: Weights and biases for affine layer
+    - gamma, beta: Scale and shift parameters for layernorm
+    - bn_param: Dictionary of normalization parameters
+
+    Returns a tuple of:
+    - out: Output of ReLU
+    - cache: Tuple of caches needed for backward pass
+    """
+    a, fc_cache = affine_forward(x, w, b)
+    an, ln_cache = layernorm_forward(a, gamma, beta, bn_param) # outputs affine normalized
+    out, relu_cache = relu_forward(an)
+    cache = (fc_cache, ln_cache, relu_cache)
+    return out, cache
+
+def affine_ln_relu_backward(dout, cache):
+    """
+    Backward pass for affine-layernorm-ReLU convenience layer.
+
+    Inputs:
+    - dout: Upstream gradient
+    - cache: Tuple of caches from forward pass
+
+    Returns a tuple of:
+    - dx: Gradient wrt input x
+    - dw: Gradient wrt weights w
+    - db: Gradient wrt biases b
+    - dgamma: Gradient wrt layernorm scale parameter gamma
+    - dbeta: Gradient wrt layernorm shift parameter beta
+    """
+    fc_cache, ln_cache, relu_cache = cache
+    dan = relu_backward(dout, relu_cache)
+    da, dgamma, dbeta = layernorm_backward(dan, ln_cache)
+    dx, dw, db = affine_backward(da, fc_cache)
+    return dx, dw, db, dgamma, dbeta
+
 
 class TwoLayerNet(object):
     """
@@ -227,7 +311,7 @@ class FullyConnectedNet(object):
           # create biase initialized to 0 with dimension 
           self.params[b_key] = np.zeros(layer_dims[i + 1])
           
-          # if using batch normalization, initialize gamma and beta for all but last layer
+          # if using normalization, initialize gamma and beta for all but last layer
           if self.normalization is not None and i < self.num_layers - 1:
               gamma_key = f'gamma{i + 1}'
               beta_key = f'beta{i + 1}'
@@ -317,10 +401,25 @@ class FullyConnectedNet(object):
         for i in range(1, self.num_layers):  # Hidden layers: 1 to L-1
           W = self.params[f'W{i}']
           b = self.params[f'b{i}']
+          
+          if self.normalization == 'batchnorm':
+            gamma = self.params[f'gamma{i}']
+            beta = self.params[f'beta{i}']
+            bn_param = self.bn_params[i-1]  #bn_params list
 
-          out, fc_cache = affine_forward(out, W, b) # get affine out and fully connected cache
-          out, relu_cache = relu_forward(out)
-          caches[i] = (fc_cache, relu_cache)
+            out, cache = affine_bn_relu_forward(out, W, b, gamma, beta, bn_param)
+            caches[i] = cache
+          elif self.normalization == 'layernorm':
+            gamma = self.params[f'gamma{i}']
+            beta = self.params[f'beta{i}']
+            bn_param = self.bn_params[i-1]  #bn_params list
+
+            out, cache = affine_ln_relu_forward(out, W, b, gamma, beta, bn_param)
+            caches[i] = cache
+          else:
+            out, fc_cache = affine_forward(out, W, b) # get affine out and fully connected cache
+            out, relu_cache = relu_forward(out)
+            caches[i] = (fc_cache, relu_cache)
         
         # Final affine layer to get scores
         W_final_layer = self.params[f'W{self.num_layers}']
@@ -369,11 +468,24 @@ class FullyConnectedNet(object):
 
         # backward pass for layers layer L-1 to layer 1
         for i in reversed(range(1, self.num_layers)):
-            fc_cache, relu_cache = caches[i]
-            dx = relu_backward(dx, relu_cache)
-            dx, dW, db = affine_backward(dx, fc_cache)
-            grads[f'W{i}'] = dW + self.reg * self.params[f'W{i}']
-            grads[f'b{i}'] = db
+            if self.normalization == 'batchnorm':
+              dx, dw, db, dgamma, dbeta = affine_bn_relu_backward(dx, caches[i])
+              grads[f'W{i}'] = dw + self.reg * self.params[f'W{i}']
+              grads[f'b{i}'] = db
+              grads[f'gamma{i}'] = dgamma
+              grads[f'beta{i}'] = dbeta
+            elif self.normalization == 'layernorm':
+              dx, dw, db, dgamma, dbeta = affine_ln_relu_backward(dx, caches[i])
+              grads[f'W{i}'] = dw + self.reg * self.params[f'W{i}']
+              grads[f'b{i}'] = db
+              grads[f'gamma{i}'] = dgamma
+              grads[f'beta{i}'] = dbeta
+            else:
+              fc_cache, relu_cache = caches[i]
+              dx = relu_backward(dx, relu_cache)
+              dx, dw, db = affine_backward(dx, fc_cache)
+              grads[f'W{i}'] = dw + self.reg * self.params[f'W{i}']
+              grads[f'b{i}'] = db
 
         pass
 
