@@ -853,7 +853,17 @@ def spatial_batchnorm_forward(x, gamma, beta, bn_param):
     # Your implementation should be very short; ours is less than five lines. #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    
+    N, C, H, W = x.shape
 
+    # Reshape x to (N*H*W, C)
+    x_reshaped = x.transpose(0, 2, 3, 1).reshape(-1, C)
+
+    # Apply standard batch normalization
+    out_reshaped, cache = batchnorm_forward(x_reshaped, gamma, beta, bn_param)
+
+    # Reshape output back to (N, C, H, W)
+    out = out_reshaped.reshape(N, H, W, C).transpose(0, 3, 1, 2)
     pass
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -887,6 +897,17 @@ def spatial_batchnorm_backward(dout, cache):
     # Your implementation should be very short; ours is less than five lines. #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+
+    N, C, H, W = dout.shape
+
+    # Reshape dout to (N*H*W, C)
+    dout_reshaped = dout.transpose(0, 2, 3, 1).reshape(-1, C)
+
+    # apply batchnorm_back, returns output in same shape as input
+    dx_reshaped, dgamma, dbeta = batchnorm_backward(dout_reshaped, cache) 
+
+    # Reshape dx back to (N, C, H, W)
+    dx = dx_reshaped.reshape(N, H, W, C).transpose(0, 3, 1, 2)
 
     pass
 
@@ -928,6 +949,18 @@ def spatial_groupnorm_forward(x, gamma, beta, G, gn_param):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
+    N, C, H, W = x.shape
+    x_grouped = x.reshape(N, G, C // G, H, W)
+
+    mean = np.mean(x_grouped, axis=(2, 3, 4), keepdims=True)
+    var = np.var(x_grouped, axis=(2, 3, 4), keepdims=True)
+
+    x_groupnorm = (x_grouped - mean) / np.sqrt(var + eps)
+    x_norm = x_groupnorm.reshape(N, C, H, W)
+
+    out = gamma[None, :, None, None] * x_norm + beta[None, :, None, None]
+
+    cache = (G, x, x_norm, mean, var, beta, gamma, eps)
     pass
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -957,7 +990,32 @@ def spatial_groupnorm_backward(dout, cache):
     # This will be extremely similar to the layer norm implementation.        #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    G, x, x_norm, mean, var, beta, gamma, eps = cache
+    N, C, H, W = x.shape
 
+    # Gradients of scale and shift
+    dgamma = np.sum(dout * x_norm, axis=(0, 2, 3), keepdims=True)
+    dbeta = np.sum(dout, axis=(0, 2, 3), keepdims=True)
+
+    # Gradient w.r.t. normalized input
+    dx_norm = dout * gamma[None, :, None, None]
+
+    # Reshape into grouped format
+    x_grouped = x.reshape(N, G, C // G, H, W)
+    dx_norm_grouped = dx_norm.reshape(N, G, C // G, H, W)
+    x_norm_grouped = x_norm.reshape(N, G, C // G, H, W)
+
+    m = C // G * H * W
+    std = np.sqrt(var + eps)
+
+    # Use layer-norm-style derivative
+    dx_grouped = (1. / m) / std * (
+        m * dx_norm_grouped
+        - np.sum(dx_norm_grouped, axis=(2, 3, 4), keepdims=True)
+        - x_norm_grouped * np.sum(dx_norm_grouped * x_norm_grouped, axis=(2, 3, 4), keepdims=True)
+    )
+
+    dx = dx_grouped.reshape(N, C, H, W)
     pass
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
