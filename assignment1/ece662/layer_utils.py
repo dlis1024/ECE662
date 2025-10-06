@@ -108,23 +108,3 @@ def conv_relu_pool_backward(dout, cache):
     da = relu_backward(ds, relu_cache)
     dx, dw, db = conv_backward_fast(da, conv_cache)
     return dx, dw, db
-
-def affine_bn_relu_forward(x, w, b, gamma, beta, bn_param):
-    """
-    Convenience layer: affine -> batchnorm -> ReLU
-
-    Inputs:
-    - x: Input data, shape (N, D)
-    - w, b: Weights and biases for affine layer
-    - gamma, beta: Scale and shift parameters for batchnorm
-    - bn_param: Dictionary of batchnorm parameters
-
-    Returns a tuple of:
-    - out: Output of ReLU
-    - cache: Tuple of caches needed for backward pass
-    """
-    a, fc_cache = affine_forward(x, w, b)
-    an, bn_cache = batchnorm_forward(a, gamma, beta, bn_param)
-    out, relu_cache = relu_forward(an)
-    cache = (fc_cache, bn_cache, relu_cache)
-    return out, cache

@@ -171,7 +171,9 @@ def adam(w, dw, config=None):
     # using it in any calculations.                                           #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-   
+    
+    # useful link https://jamhuri.medium.com/understanding-the-adam-optimization-algorithm-a-deep-dive-into-the-formulas-3ac5fc5b7cd3
+
     learning_rate = config["learning_rate"]
     beta1 = config["beta1"]
     beta2 = config["beta2"]
@@ -186,6 +188,7 @@ def adam(w, dw, config=None):
     # Compute bias-corrected estimates
     m_hat = m / (1 - beta1 ** t)
     v_hat = v / (1 - beta2 ** t)
+
 
     # Compute parameter update
     next_w = w - learning_rate * m_hat / (np.sqrt(v_hat) + epsilon)

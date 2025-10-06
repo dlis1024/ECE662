@@ -622,19 +622,15 @@ def conv_forward_naive(x, w, b, conv_param):
     )
 
     out = np.zeros((N, F, H_out, W_out), dtype=x.dtype)
-
-    # Naive convolution: loop over all examples, filters, output spatial locations
     for n in range(N):
         for f in range(F):
             for i in range(H_out):
                 for j in range(W_out):
-                    # Find the corners of the current "slice"
                     h_start = i * stride
                     h_end = h_start + HH
                     w_start = j * stride
                     w_end = w_start + WW
 
-                    # Extract current slice
                     x_slice = x_padded[n, :, h_start:h_end, w_start:w_end]
 
                     # Convolve (element-wise multiply and sum) and add bias
@@ -668,7 +664,46 @@ def conv_backward_naive(dout, cache):
     # TODO: Implement the convolutional backward pass.                        #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    x, w, b, conv_param = cache
+    stride = conv_param['stride']
+    pad = conv_param['pad']
 
+    N, C, H, W = x.shape
+    F, C, HH, WW = w.shape
+    _, _, H_out, W_out = dout.shape
+
+    # Pad x and dx
+    x_padded = np.pad(
+        x,
+        ((0, 0), (0, 0), (pad, pad), (pad, pad)),
+        mode='constant', constant_values=0
+    )
+    dx_padded = np.zeros_like(x_padded)
+    dw = np.zeros_like(w)
+    db = np.zeros_like(b)
+
+    # Compute db: sum over N, H_out, W_out
+    for f in range(F):
+        db[f] = np.sum(dout[:, f, :, :])
+
+    # Compute dw and dx
+    for n in range(N):
+        for f in range(F):
+            for i in range(H_out):
+                for j in range(W_out):
+                    h_start = i * stride
+                    h_end = h_start + HH
+                    w_start = j * stride
+                    w_end = w_start + WW
+
+                    x_slice = x_padded[n, :, h_start:h_end, w_start:w_end]
+                    
+                    # Update gradients
+                    dw[f] += x_slice * dout[n, f, i, j]
+                    dx_padded[n, :, h_start:h_end, w_start:w_end] += w[f] * dout[n, f, i, j]
+
+    # Unpad dx
+    dx = dx_padded[:, :, pad:H+pad, pad:W+pad]
     pass
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -702,7 +737,27 @@ def max_pool_forward_naive(x, pool_param):
     # TODO: Implement the max-pooling forward pass                            #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    N, C, H, W = x.shape
+    pool_height = pool_param['pool_height']
+    pool_width = pool_param['pool_width']
+    stride = pool_param['stride']
 
+    H_out = 1 + (H - pool_height) // stride
+    W_out = 1 + (W - pool_width) // stride
+
+    out = np.zeros((N, C, H_out, W_out), dtype=x.dtype)
+
+    for n in range(N):
+        for c in range(C):
+            for i in range(H_out):
+                for j in range(W_out):
+                    h_start = i * stride
+                    h_end = h_start + pool_height
+                    w_start = j * stride
+                    w_end = w_start + pool_width
+
+                    x_slice = x[n, c, h_start:h_end, w_start:w_end]
+                    out[n, c, i, j] = np.max(x_slice)
     pass
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -729,7 +784,34 @@ def max_pool_backward_naive(dout, cache):
     # TODO: Implement the max-pooling backward pass                           #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    x, pool_param = cache
+    N, C, H, W = x.shape
+    pool_height = pool_param['pool_height']
+    pool_width = pool_param['pool_width']
+    stride = pool_param['stride']
 
+    H_out = 1 + (H - pool_height) // stride
+    W_out = 1 + (W - pool_width) // stride
+
+    dx = np.zeros_like(x)
+
+    # Loop over each input and apply gradient only at max location
+    for n in range(N):
+        for c in range(C):
+            for i in range(H_out):
+                for j in range(W_out):
+                    h_start = i * stride
+                    h_end = h_start + pool_height
+                    w_start = j * stride
+                    w_end = w_start + pool_width
+
+                    x_slice = x[n, c, h_start:h_end, w_start:w_end]
+                    max_val = np.max(x_slice)
+
+                    mask = (x_slice == max_val)
+
+                    # Only pass gradient to max location
+                    dx[n, c, h_start:h_end, w_start:w_end] += mask * dout[n, c, i, j]
     pass
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
