@@ -606,6 +606,39 @@ def conv_forward_naive(x, w, b, conv_param):
     # Hint: you can use the function np.pad for padding.                      #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    
+    N, C, H, W = x.shape
+    F, C, HH, WW = w.shape
+    stride = conv_param['stride']
+    pad = conv_param['pad']
+
+    H_out = 1 + (H + 2 * pad - HH) / stride
+    W_out = 1 + (W + 2 * pad - WW) / stride
+
+    x_padded = np.pad(
+        x, 
+        ((0, 0), (0, 0), (pad, pad), (pad, pad)),
+        mode='constant', constant_values=0
+    )
+
+    out = np.zeros((N, F, H_out, W_out), dtype=x.dtype)
+
+    # Naive convolution: loop over all examples, filters, output spatial locations
+    for n in range(N):
+        for f in range(F):
+            for i in range(H_out):
+                for j in range(W_out):
+                    # Find the corners of the current "slice"
+                    h_start = i * stride
+                    h_end = h_start + HH
+                    w_start = j * stride
+                    w_end = w_start + WW
+
+                    # Extract current slice
+                    x_slice = x_padded[n, :, h_start:h_end, w_start:w_end]
+
+                    # Convolve (element-wise multiply and sum) and add bias
+                    out[n, f, i, j] = np.sum(x_slice * w[f]) + b[f]
 
     pass
 
